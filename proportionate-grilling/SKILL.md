@@ -1,14 +1,14 @@
 ---
-name: phoenix-grilling
+name: proportionate-grilling
 description: Proportionate, evidence-first grilling that extracts an executable goal, success criteria, invariants, and unresolved decisions without forcing domain-model work. Use when a software task or design is too unclear to plan, test, or implement safely.
 compatibility: Can use bounded subagents for factual research when the harness provides them.
 ---
 
-# Phoenix Grilling
+# Proportionate Grilling
 
 Use when work is blocked by unclear intent, success criteria, constraints, or consequential assumptions. Goal is readiness for the next decision or implementation slice, not exhaustive understanding.
 
-This skill is Phoenix-aware: calibrate questioning depth to cost of being wrong × cost of reversal. A reversible local edit gets a short clarification; schemas, public interfaces, security boundaries, migrations, and systems of record get deeper interrogation.
+Calibrate questioning depth to cost of being wrong × cost of reversal. A reversible local edit gets a short clarification; schemas, public interfaces, security boundaries, migrations, and systems of record get deeper interrogation.
 
 ## Principles
 
@@ -24,7 +24,7 @@ This skill is Phoenix-aware: calibrate questioning depth to cost of being wrong 
 
 ### 1. Gather evidence
 
-Read only high-signal sources: relevant code/tests, repo instructions, current diff, recent history, active spec or issue, and existing Phoenix state (`SYSTEM.md`, `.phoenix/`, ADRs, contracts, or eval docs).
+Read only high-signal sources: relevant code/tests, repo instructions, current diff, recent history, active spec or issue, and existing durable intent (`SYSTEM.md`, ADRs, contracts, or eval docs).
 
 ### 2. Establish current understanding
 
@@ -34,7 +34,7 @@ State only facts already supplied by the user or verified from repo evidence:
 - explicit scope and non-goals
 - known constraints and invariants
 - unresolved assumptions
-- any already-agreed Oracle
+- any already-agreed acceptance test
 
 Do not fill gaps with a proposed answer. Ask one neutral question about the highest-impact unresolved gap.
 
@@ -45,7 +45,7 @@ Choose the smallest unresolved question set from:
 - **Outcome:** what observable behavior changes, and for whom?
 - **Examples:** typical case, nasty edge, and must-reject case when useful.
 - **Negative space:** what must remain unchanged or must never happen?
-- **Oracle:** what evidence would make us accept the result?
+- **Acceptance test:** what evidence would make us accept the result?
 - **Boundary:** who owns the behavior or mutation, and what contract must remain stable?
 - **Operational envelope:** relevant scale, latency, failure, compatibility, migration, or rollback constraint.
 - **Tradeoff:** which real constraint decides between viable options?
@@ -73,7 +73,7 @@ Success criteria:
 Must remain true:
 Non-goals:
 Consequential assumptions:
-Smallest Oracle:
+Smallest acceptance test:
 Unresolved decision: none | <decision requiring user>
 ```
 

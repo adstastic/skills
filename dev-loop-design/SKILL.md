@@ -34,7 +34,7 @@ git log --oneline --decorate -n 8
 Read existing sources of truth when present:
 
 - working agreements: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`
-- Phoenix/durable intent: `SYSTEM.md`, `.phoenix/`, ADRs, specs, contracts, evals
+- Durable intent: `SYSTEM.md`, ADRs, specs, contracts, evals
 - plan/status: `PLAN.md`, `ROADMAP.md`, issues, milestones, feature/status files
 - relevant source, tests, recent history, and dirty diff
 - canonical build/check workflow: README, Makefile/Justfile, package.json, pyproject.toml, Cargo.toml, go.mod, xcodeproj/Package.swift, CI
@@ -43,17 +43,17 @@ Trust runnable evidence over stale prose. Never create parallel memory merely be
 
 ### 2. Calibrate with pragmatic grilling
 
-Load and follow `phoenix-grilling` when outcome, success criteria, invariants, non-goals, Oracle, or a consequential assumption is unclear.
+Load and follow `proportionate-grilling` when outcome, success criteria, invariants, non-goals, test oracle, or a consequential assumption is unclear.
 
-Keep questioning proportional to cost of being wrong × cost of reversal. When questioning the user, `phoenix-grilling` overrides Phoenix Architecture's grilling guidance: do not volunteer answers or recommendations unless asked. Do not turn every task into domain modeling. Load `domain-modeling` only when terminology, ownership, or a durable decision is itself blocking.
+Keep questioning proportional to cost of being wrong × cost of reversal. When questioning the user, follow `proportionate-grilling`: do not volunteer answers or recommendations unless asked. Do not turn every task into domain modeling. Load `domain-modeling` only when terminology, ownership, or a durable decision is itself blocking.
 
 Before designing, establish in chat:
 
 - desired observable outcome
-- success criteria and smallest plausible Oracle
+- success criteria and smallest plausible test
 - constraints/invariants and non-goals
 - consequential assumptions and unresolved decisions
-- likely Boundary, blast radius, recovery, and rollback for non-trivial work
+- likely boundary, blast radius, recovery, and rollback for non-trivial work
 
 ### 3. Research facts
 
@@ -75,7 +75,7 @@ Summarize:
 
 - current behavior and ownership
 - desired behavior
-- Claims, constraints, invariants, and operational envelope
+- requirements, constraints, invariants, and operational envelope
 - code/data touchpoints and mutation ownership
 - options and honest tradeoffs
 - recommended direction and its weakest point
@@ -86,7 +86,7 @@ Write durable docs only after the user agrees they belong in the repo.
 
 For a consequential module interface or seam, load `codebase-design` and use its Design It Twice pattern: frame shared constraints, then launch parallel subagents with deliberately different design pressures such as minimum interface, easiest common case, and maximum flexibility.
 
-Require each option to state interface, invariants, errors, usage, hidden implementation, dependencies, Oracle, and tradeoffs. Main agent compares depth, locality, seam placement, reversibility, and fit to success criteria, then recommends one.
+Require each option to state interface, invariants, errors, usage, hidden implementation, dependencies, tests, and tradeoffs. Main agent compares depth, locality, seam placement, reversibility, and fit to success criteria, then recommends one.
 
 Skip competing agents when one obvious reversible design satisfies the constraints. If subagent tooling is unavailable, write separately labeled alternatives yourself and report that they are not independent.
 
@@ -96,7 +96,7 @@ Load and apply `review-baseline`. Before slice planning for non-trivial work, gi
 
 Give the critic the agreed goal, design sketch, repo sources, and evidence. Require path/line evidence for code claims, explicit uncertainty, and concise blocker-first output. It must critique, not redesign from scratch.
 
-Main agent verifies findings against source. Reject false positives. Resolve factual gaps. Present any finding that changes scope, product behavior, a slow Boundary, or an agreed tradeoff to the user rather than silently fixing the design. If subagent tooling is unavailable, perform the same review as an explicit separate pass and report the fallback.
+Main agent verifies findings against source. Reject false positives. Resolve factual gaps. Present any finding that changes scope, product behavior, a hard-to-reverse boundary, or an agreed tradeoff to the user rather than silently fixing the design. If subagent tooling is unavailable, perform the same review as an explicit separate pass and report the fallback.
 
 ### 7. Structure vertical slices
 
@@ -104,7 +104,7 @@ For each proposed slice, state:
 
 - user-visible behavior
 - expected code/data touchpoints
-- primary failing Oracle and broader check
+- primary failing test and broader check
 - rollback/recovery when relevant
 - dependencies on earlier slices
 - non-goals
@@ -117,7 +117,7 @@ End with:
 
 - agreed goal and success criteria
 - recommended first slice
-- red test/Oracle
+- red test
 - smallest green implementation
 - focused and broader checks
 - remaining risks and deferred work

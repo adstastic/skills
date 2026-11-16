@@ -19,8 +19,8 @@ Each local skill directory contains a `SKILL.md` with operating instructions and
 - `grill-with-docs` — grill against project language and propose `CONTEXT.md`/ADR updates with approval gates.
 - `hunk-review` — interact with live Hunk diff review sessions via CLI.
 - `ios-device-runner` — build, install, and launch an iOS app on a physical device; configure with CLI flags, env vars, or a private `--config` file.
-- `phoenix-grilling` — extract success criteria and unresolved decisions through proportionate, non-leading, Phoenix-aware questioning.
 - `project-catchup` — quickly bootstrap context for active repo work.
+- `proportionate-grilling` — extract success criteria and unresolved decisions through proportionate, non-leading questioning.
 - `pr-to-tuicr` — turn current changes into a confirmed GitHub PR and open it in tuicr in a new Herdr pane.
 - `repo-audit` — copy/clone a repo into `/tmp` and run a critical audit.
 - `review-baseline` — apply a shared adversarial evidence bar to specialized review analysis.

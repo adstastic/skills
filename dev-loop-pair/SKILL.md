@@ -41,7 +41,7 @@ If no clear check command exists, infer likely focused checks from tooling and p
 
 ### 2. Calibrate and state tiny plan
 
-If outcome, success criteria, non-goals, or test oracle are unclear, load and follow `phoenix-grilling` before editing. Its neutral-questioning rules override any other grilling guidance. If that exposes unresolved design or scope decisions, stop and load `dev-loop-design`.
+If outcome, success criteria, non-goals, or test oracle are unclear, load and follow `proportionate-grilling` before editing. Its neutral-questioning rules override any other grilling guidance. If that exposes unresolved design or scope decisions, stop and load `dev-loop-design`.
 
 State in chat:
 
