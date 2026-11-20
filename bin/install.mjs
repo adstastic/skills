@@ -10,10 +10,12 @@ import { stripVTControlCharacters } from 'node:util';
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const managedManifestName = '.agent-skills-managed.json';
 
 export function resolveOwnSource(root = packageRoot) {
   return existsSync(join(root, '.git')) ? root : 'adstastic/skills';
 }
+
 const commonAgents = [
   ['claude-code', 'Claude Code'],
   ['codex', 'Codex'],
@@ -39,45 +41,28 @@ export const sources = [
     defaults: ['agent-browser'],
   },
   {
-    id: 'herdrdev/herdr',
-    label: 'Herdr',
-    source: 'herdrdev/herdr',
-    defaults: ['herdr'],
-  },
-  {
-    id: 'agavra/tuicr',
-    label: 'tuicr',
-    source: 'agavra/tuicr',
-    defaults: ['tuicr'],
-  },
-  {
     id: 'cursor/plugins/thermos',
     label: 'Cursor Thermos',
     source: 'https://github.com/cursor/plugins/tree/main/thermos',
-    defaults: ['thermo-nuclear-review', 'thermo-nuclear-code-quality-review'],
-  },
-  {
-    id: 'leopiney/linus-torvalds-skills',
-    label: 'Torvalds Doctrine',
-    source: 'leopiney/linus-torvalds-skills',
-    defaults: ['torvalds-doctrine'],
+    defaults: ['thermo-nuclear-review'],
   },
   {
     id: 'mattpocock/skills',
     label: 'Matt Pocock',
     source: 'mattpocock/skills',
-    defaults: [
-      'code-review',
-      'codebase-design',
-      'domain-modeling',
-      'grilling',
-      'handoff',
-      'improve-codebase-architecture',
-      'prototype',
-      'research',
-      'tdd',
-      'teach',
-    ],
+    defaults: ['codebase-design', 'diagnosing-bugs'],
+  },
+  {
+    id: 'cloudflare/skills',
+    label: 'Cloudflare',
+    source: 'cloudflare/skills',
+    defaults: ['cloudflare', 'wrangler', 'workers-best-practices', 'durable-objects', 'agents-sdk'],
+  },
+  {
+    id: 'danshapiro/trycycle',
+    label: 'trycycle',
+    source: 'danshapiro/trycycle',
+    defaults: ['trycycle'],
   },
   {
     id: 'cursor/plugins/pstack',
@@ -87,23 +72,40 @@ export const sources = [
   },
 ];
 
-export const overrides = JSON.parse(
-  readFileSync(join(packageRoot, 'skill-overrides.json'), 'utf8')
-);
-for (const sourceId of Object.values(overrides)) {
-  if (!sources.some((source) => source.id === sourceId)) {
-    throw new Error(`Unknown override source: ${sourceId}`);
+export const retiredSourceIds = [
+  'herdrdev/herdr',
+  'agavra/tuicr',
+  'leopiney/linus-torvalds-skills',
+];
+
+function lockRepoId(id) {
+  const parts = id.split('/');
+  return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : id;
+}
+
+const managedLockRepos = new Set([
+  ...sources.map((source) => lockRepoId(source.id)),
+  ...retiredSourceIds.map(lockRepoId),
+]);
+
+function isManagedLockEntry(entry, ownRoot) {
+  if (!entry || typeof entry.source !== 'string') return false;
+  if (managedLockRepos.has(entry.source)) return true;
+  if (entry.sourceType === 'local') {
+    return entry.source === ownRoot || /(^|[\\/])agent-skills$/.test(entry.source);
   }
+  return false;
 }
 
 export function parseArgs(argv) {
-  const options = { agents: [], copy: false, global: undefined, help: false, yes: false };
+  const options = { agents: [], copy: false, global: undefined, help: false, prune: false, yes: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--yes' || arg === '-y') options.yes = true;
     else if (arg === '--global' || arg === '-g') options.global = true;
     else if (arg === '--project' || arg === '-p') options.global = false;
     else if (arg === '--copy') options.copy = true;
+    else if (arg === '--prune') options.prune = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
     else if (arg === '--agent' || arg === '-a') {
       const agent = argv[index + 1];
@@ -169,10 +171,6 @@ export function selectDefaults(catalogs) {
     .filter((source) => source.skills.length > 0);
 }
 
-export function findOverrideSource(name, providers) {
-  return providers.find((source) => source.id === overrides[name])?.source;
-}
-
 function cancelIfNeeded(value) {
   if (!p.isCancel(value)) return false;
   p.cancel('Installation cancelled');
@@ -192,23 +190,20 @@ function skillSources(catalogs) {
 export async function resolveDuplicates(catalogs, interactive = true) {
   for (const [name, providers] of skillSources(catalogs)) {
     if (providers.length < 2) continue;
-    let selectedSource = findOverrideSource(name, providers);
-    if (!selectedSource && !interactive) {
+    if (!interactive) {
       throw new Error(
-        `Duplicate skill ${name} from ${providers.map((source) => source.id).join(', ')}; add a skill-overrides.json entry for ${name}`
+        `Duplicate skill ${name} from ${providers.map((source) => source.id).join(', ')}`
       );
     }
-    if (!selectedSource) {
-      selectedSource = await p.select({
-        message: `Choose one source for duplicate skill ${name}`,
-        options: providers.map((source) => ({
-          value: source.source,
-          label: source.label,
-          hint: source.source,
-        })),
-      });
-      if (cancelIfNeeded(selectedSource)) return null;
-    }
+    const selectedSource = await p.select({
+      message: `Choose one source for duplicate skill ${name}`,
+      options: providers.map((source) => ({
+        value: source.source,
+        label: source.label,
+        hint: source.source,
+      })),
+    });
+    if (cancelIfNeeded(selectedSource)) return null;
     for (const source of catalogs) {
       if (source.source !== selectedSource) {
         source.skills = source.skills.filter((skill) => skill.name !== name);
@@ -324,6 +319,47 @@ export function buildCommands(selected, options) {
   });
 }
 
+export function findStaleSkills(agentsDir, selectedNames, { ownRoot = packageRoot } = {}) {
+  const keep = new Set(selectedNames);
+  const skillsDir = join(agentsDir, 'skills');
+  const stale = new Set();
+
+  const lockFile = join(agentsDir, '.skill-lock.json');
+  let lockSkills = {};
+  if (existsSync(lockFile)) {
+    const parsed = JSON.parse(readFileSync(lockFile, 'utf8'));
+    if (parsed && typeof parsed.skills === 'object' && parsed.skills !== null) {
+      lockSkills = parsed.skills;
+    }
+  }
+
+  for (const [name, entry] of Object.entries(lockSkills)) {
+    if (!keep.has(name) && isManagedLockEntry(entry, ownRoot)) {
+      stale.add(name);
+    }
+  }
+
+  const manifestFile = join(agentsDir, managedManifestName);
+  if (existsSync(manifestFile)) {
+    const parsed = JSON.parse(readFileSync(manifestFile, 'utf8'));
+    const previous = Array.isArray(parsed?.skills) ? parsed.skills : [];
+    for (const name of previous) {
+      if (!keep.has(name) && (existsSync(join(skillsDir, name)) || Object.hasOwn(lockSkills, name))) {
+        stale.add(name);
+      }
+    }
+  }
+
+  return [...stale].sort();
+}
+
+export function buildRemoveCommand(staleNames, options) {
+  const args = ['-y', 'skills', 'remove', ...staleNames];
+  if (options.global) args.push('--global');
+  args.push('--yes');
+  return { label: `Prune ${staleNames.length} removed skill${staleNames.length === 1 ? '' : 's'}`, args };
+}
+
 function runCommand(command) {
   return new Promise((resolve, reject) => {
     const child = spawn(npxCommand, command.args, { env: npxEnv(), stdio: 'inherit' });
@@ -334,9 +370,9 @@ function runCommand(command) {
 
 export async function executeCommands(commands, run = runCommand) {
   for (const command of commands) {
-    p.log.step(`Installing ${command.label}`);
+    p.log.step(command.label.startsWith('Prune ') ? command.label : `Installing ${command.label}`);
     const exitCode = await run(command);
-    if (exitCode !== 0) throw new Error(`${command.label} installation failed (${exitCode})`);
+    if (exitCode !== 0) throw new Error(`${command.label} failed (${exitCode})`);
   }
 }
 
@@ -360,10 +396,26 @@ export function markCodexManualOnly(skillsDir, names, warn = (message) => p.log.
   return written;
 }
 
-export async function installBundle(selected, options, { run = runCommand, home = homedir(), cwd = process.cwd() } = {}) {
+export async function installBundle(
+  selected,
+  options,
+  { run = runCommand, home = homedir(), cwd = process.cwd(), ownRoot = packageRoot } = {}
+) {
   await executeCommands(buildCommands(selected, options), run);
   const names = selected.flatMap((source) => source.skills.map((skill) => skill.name));
-  return markCodexManualOnly(join(options.global ? home : cwd, '.agents', 'skills'), names);
+  const agentsDir = join(options.global ? home : cwd, '.agents');
+  if (options.prune) {
+    const stale = findStaleSkills(agentsDir, names, { ownRoot });
+    if (stale.length > 0) {
+      await executeCommands([buildRemoveCommand(stale, options)], run);
+    }
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(
+      join(agentsDir, managedManifestName),
+      `${JSON.stringify({ version: 1, skills: [...new Set(names)].sort() }, null, 2)}\n`
+    );
+  }
+  return markCodexManualOnly(join(agentsDir, 'skills'), names);
 }
 
 function formatPlan(selected, options) {
@@ -375,11 +427,12 @@ function formatPlan(selected, options) {
     `Scope: ${options.global ? 'global' : 'project'}`,
     `Agents: ${options.agents.join(', ') || 'auto-detect'}`,
     `Method: ${options.copy ? 'copy' : 'symlink'}`,
+    ...(options.prune ? ['Prune: remove managed skills no longer in selection'] : []),
   ].join('\n');
 }
 
 function printHelp() {
-  console.log(`Usage: agent-skills [options]\n\nOptions:\n  -y, --yes           Install curated defaults without prompts\n  -g, --global        Install globally\n  -p, --project       Install in current project\n  -a, --agent <id>    Target agent; repeatable\n      --copy           Copy instead of symlink\n  -h, --help           Show help`);
+  console.log(`Usage: agent-skills [options]\n\nOptions:\n  -y, --yes           Install curated defaults without prompts\n  -g, --global        Install globally\n  -p, --project       Install in current project\n  -a, --agent <id>    Target agent; repeatable\n      --copy           Copy instead of symlink\n      --prune          Remove managed skills no longer in selection\n  -h, --help           Show help`);
 }
 
 function warnRemovedDefaults(catalogs) {
@@ -404,7 +457,7 @@ export async function main(argv = process.argv.slice(2)) {
   let options;
   if (args.yes) {
     selected = await selectNoninteractive();
-    options = { agents: args.agents, copy: args.copy, global: args.global ?? false };
+    options = { agents: args.agents, copy: args.copy, global: args.global ?? false, prune: args.prune };
   } else {
     p.intro('Agent Skills installer');
     const spinner = p.spinner();
@@ -416,6 +469,7 @@ export async function main(argv = process.argv.slice(2)) {
     if (!selected) return;
     options = await chooseInstallOptions();
     if (!options) return;
+    options = { ...options, prune: args.prune };
     p.note(formatPlan(selected, options), 'Review third-party sources before installing');
     const confirmed = await p.confirm({ message: 'Install this bundle?', initialValue: true });
     if (cancelIfNeeded(confirmed) || !confirmed) {

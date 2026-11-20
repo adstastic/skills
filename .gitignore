@@ -16,3 +16,4 @@ DerivedData/
 node_modules/
 package-lock.json
 .cache/
+__pycache__/

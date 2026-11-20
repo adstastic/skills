@@ -33,6 +33,7 @@ A one-word reply such as "go", "do it", an option choice like "b", or "merge" is
 - The user often dictates. Read for intent through typos and misheard names. Ask only when two readings lead to different actions.
 - Offer numbered options, also under a full-autonomy grant.
 - Explain a new term in plain words.
+- Never point to an earlier message ("from my earlier message", "as above"). Repeat in full what the user needs now: the command, the link, the decision.
 - Give size as complexity. Never estimate hours or days.
 - For a design question, research platform guidelines, mature open-source projects, and peer products before you recommend. Prefer open cross-agent standards to Claude-specific options.
 - Put long analysis in an artifact page by default. The user comments there.
@@ -67,13 +68,14 @@ A one-word reply such as "go", "do it", an option choice like "b", or "merge" is
 
 - Before you design, check open issues and PRs for related work.
 - Write handoffs and current state into the issue, or into each PR body of a stack. Restack onto the base before a merge.
+- Open every PR as a draft. Mark it ready only after the review loop and a verifier PASS. This overrides the poteto-mode Opening a PR playbook. Drafts skip CI.
 
 ## Review
 
 "Run my review loop" means these steps. Run them before you open any non-trivial PR, without a request.
 
 1. Run the **interrogate** skill, contested or not. Its verdict stays read-only.
-2. Add reviewers: **ponytail-review** always, **phoenix-architecture** in a repo with `SYSTEM.md`, **thermo-nuclear-review** for auth, persistence, concurrency, or external contracts.
+2. Add reviewers: **ponytail-review** always, **shape-of-system** in a repo with `SYSTEM.md`, **thermo-nuclear-review** for auth, persistence, concurrency, or external contracts.
 3. After the verdict, fix the Act-on findings. Run again only the reviewers whose evidence changed. Stop when Act-on is empty.
 4. Under `## Verification` in the PR body, write one line: the reviewers, the count fixed, the count dismissed. Put the Consider findings in the catch-up entry.
 5. Treat Codex PR review comments as Bugbot comments.

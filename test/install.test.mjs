@@ -7,14 +7,14 @@ import { join } from 'node:path';
 
 import {
   buildCommands,
+  buildRemoveCommand,
   executeCommands,
-  findOverrideSource,
-  loadLiveSources,
+  findStaleSkills,
   installBundle,
+  loadLiveSources,
   markCodexManualOnly,
   npxEnv,
   parseArgs,
-  overrides,
   parseSkillList,
   resolveOwnSource,
   selectNoninteractive,
@@ -51,13 +51,17 @@ test('nested npx does not inherit the outer package selection', () => {
 });
 
 test('parses shared installer options', () => {
-  assert.deepEqual(parseArgs(['--yes', '--global', '--agent', 'pi', '-a', 'codex', '--copy']), {
-    agents: ['pi', 'codex'],
-    copy: true,
-    global: true,
-    help: false,
-    yes: true,
-  });
+  assert.deepEqual(
+    parseArgs(['--yes', '--global', '--prune', '--agent', 'pi', '-a', 'codex', '--copy']),
+    {
+      agents: ['pi', 'codex'],
+      copy: true,
+      global: true,
+      help: false,
+      prune: true,
+      yes: true,
+    }
+  );
   assert.throws(() => parseArgs(['--agent']), /requires an agent ID/);
 });
 
@@ -81,23 +85,6 @@ test('loads every current source catalog through Skills CLI list mode', async ()
   assert.equal(calls.every((args) => args.at(-1) === '--list'), true);
 });
 
-test('persistent overrides choose a source only when that provider is selected', () => {
-  assert.equal(overrides['grill-with-docs'], 'adstastic/skills');
-  assert.equal(
-    findOverrideSource('grill-with-docs', [
-      { id: 'adstastic/skills', source: '/local' },
-      { id: 'mattpocock/skills', source: 'mattpocock/skills' },
-    ]),
-    '/local'
-  );
-  assert.equal(
-    findOverrideSource('grill-with-docs', [
-      { id: 'mattpocock/skills', source: 'mattpocock/skills' },
-    ]),
-    undefined
-  );
-});
-
 const captureWith = (pstackNames) => async ([, , , url]) => {
   const source = sources.find((candidate) => candidate.source === url);
   const names =
@@ -112,27 +99,26 @@ const skillNames = (selected, id) =>
   selected.find((source) => source.id === id).skills.map((skill) => skill.name);
 
 test('noninteractive mode keeps only curated default names', async () => {
-  const selected = await selectNoninteractive(captureWith(['poteto-mode']));
-  assert.deepEqual(skillNames(selected, 'adstastic/skills'), ['local-skill']);
-  assert.deepEqual(skillNames(selected, 'herdrdev/herdr'), ['herdr']);
-  assert.deepEqual(skillNames(selected, 'agavra/tuicr'), ['tuicr']);
-  assert.deepEqual(
-    skillNames(selected, 'mattpocock/skills'),
-    sources.find((source) => source.id === 'mattpocock/skills').defaults
-  );
-});
-
-test('noninteractive mode applies overrides to live catalogs', async () => {
   const selected = await selectNoninteractive(captureWith(['poteto-mode', 'tdd', 'teach']));
-  assert.deepEqual(skillNames(selected, 'cursor/plugins/pstack'), ['poteto-mode']);
-  assert.ok(skillNames(selected, 'mattpocock/skills').includes('tdd'));
-  assert.ok(skillNames(selected, 'mattpocock/skills').includes('teach'));
+  assert.deepEqual(skillNames(selected, 'adstastic/skills'), ['local-skill']);
+  assert.deepEqual(skillNames(selected, 'vercel-labs/agent-browser'), ['agent-browser']);
+  assert.deepEqual(skillNames(selected, 'cursor/plugins/thermos'), ['thermo-nuclear-review']);
+  assert.deepEqual(skillNames(selected, 'mattpocock/skills'), ['codebase-design', 'diagnosing-bugs']);
+  assert.deepEqual(skillNames(selected, 'cloudflare/skills'), [
+    'cloudflare',
+    'wrangler',
+    'workers-best-practices',
+    'durable-objects',
+    'agents-sdk',
+  ]);
+  assert.deepEqual(skillNames(selected, 'danshapiro/trycycle'), ['trycycle']);
+  assert.deepEqual(skillNames(selected, 'cursor/plugins/pstack'), ['poteto-mode', 'tdd', 'teach']);
 });
 
-test('noninteractive mode rejects an unmapped duplicate', async () => {
+test('noninteractive mode rejects a duplicate skill across sources', async () => {
   await assert.rejects(
-    selectNoninteractive(captureWith(['poteto-mode', 'herdr'])),
-    /Duplicate skill herdr from herdrdev\/herdr, cursor\/plugins\/pstack; add a skill-overrides\.json entry/
+    selectNoninteractive(captureWith(['poteto-mode', 'agent-browser'])),
+    /Duplicate skill agent-browser from vercel-labs\/agent-browser, cursor\/plugins\/pstack/
   );
 });
 
@@ -160,6 +146,43 @@ test('builds one noninteractive install per source with shared choices', () => {
   ]);
 });
 
+test('builds a prune command for removed skills', () => {
+  const command = buildRemoveCommand(['herdr', 'tuicr'], { global: true });
+  assert.equal(command.label, 'Prune 2 removed skills');
+  assert.deepEqual(command.args, ['-y', 'skills', 'remove', 'herdr', 'tuicr', '--global', '--yes']);
+});
+
+test('finds stale managed and retired skills while leaving unrelated and local-only skills alone', async () => {
+  const agentsDir = await mkdtemp(join(tmpdir(), 'agent-skills-prune-'));
+  try {
+    await mkdir(join(agentsDir, 'skills', 'orca-cli'), { recursive: true });
+    await mkdir(join(agentsDir, 'skills', 'prev-only'), { recursive: true });
+    await writeFile(
+      join(agentsDir, '.skill-lock.json'),
+      JSON.stringify({
+        version: 3,
+        skills: {
+          'adi-mode': { source: '/repo/agent-skills', sourceType: 'local' },
+          'dev-loop-build': { source: '/repo/agent-skills', sourceType: 'local' },
+          herdr: { source: 'herdrdev/herdr', sourceType: 'github' },
+          'code-review': { source: 'mattpocock/skills', sourceType: 'github' },
+          'cloudflare-one': { source: 'cloudflare/skills', sourceType: 'github' },
+          'unrelated-third-party': { source: 'someone/else', sourceType: 'github' },
+        },
+      })
+    );
+    await writeFile(
+      join(agentsDir, '.agent-skills-managed.json'),
+      JSON.stringify({ version: 1, skills: ['adi-mode', 'prev-only', 'already-gone'] })
+    );
+
+    const stale = findStaleSkills(agentsDir, ['adi-mode'], { ownRoot: '/repo/agent-skills' });
+    assert.deepEqual(stale, ['cloudflare-one', 'code-review', 'dev-loop-build', 'herdr', 'prev-only']);
+  } finally {
+    await rm(agentsDir, { recursive: true, force: true });
+  }
+});
+
 test('stops after first failed installation', async () => {
   const commands = [
     { label: 'One', args: [] },
@@ -172,7 +195,7 @@ test('stops after first failed installation', async () => {
       attempted.push(command.label);
       return command.label === 'Two' ? 7 : 0;
     }),
-    /Two installation failed \(7\)/
+    /Two failed \(7\)/
   );
   assert.deepEqual(attempted, ['One', 'Two']);
 });
@@ -213,7 +236,7 @@ test('marks manual-only skills for Codex and leaves existing policy files alone'
   }
 });
 
-test('install marks only installed skills, in the chosen scope, after every command succeeds', async () => {
+test('install marks only installed skills, prunes stale managed ones, and records manifest when --prune is set', async () => {
   const home = await mkdtemp(join(tmpdir(), 'agent-skills-home-'));
   const cwd = await mkdtemp(join(tmpdir(), 'agent-skills-cwd-'));
   const flagged = '---\nname: x\ndisable-model-invocation: true\n---\n';
@@ -223,13 +246,52 @@ test('install marks only installed skills, in the chosen scope, after every comm
       await mkdir(join(base, '.agents', 'skills', name), { recursive: true });
       await writeFile(join(base, '.agents', 'skills', name, 'SKILL.md'), flagged);
     }
+    await writeFile(
+      join(home, '.agents', '.skill-lock.json'),
+      JSON.stringify({
+        version: 3,
+        skills: {
+          herdr: { source: 'herdrdev/herdr', sourceType: 'github' },
+          m: { source: '/own/agent-skills', sourceType: 'local' },
+        },
+      })
+    );
+
     const selected = [{ label: 'One', source: 'one', skills: [{ name: 'm' }] }];
-    await assert.rejects(installBundle(selected, { agents: [], global: true }, { run: async () => 1, home, cwd }));
+    await assert.rejects(
+      installBundle(selected, { agents: [], global: true, prune: true }, { run: async () => 1, home, cwd })
+    );
     assert.equal(yaml(home, 'm'), false);
-    assert.deepEqual(await installBundle(selected, { agents: [], global: false }, { run: async () => 0, home, cwd }), ['m']);
+    assert.equal(existsSync(join(home, '.agents', '.agent-skills-managed.json')), false);
+
+    assert.deepEqual(
+      await installBundle(selected, { agents: [], global: false, prune: false }, { run: async () => 0, home, cwd }),
+      ['m']
+    );
     assert.equal(yaml(cwd, 'm'), true);
     assert.equal(yaml(cwd, 'other'), false);
     assert.equal(yaml(home, 'm'), false);
+
+    const ran = [];
+    await installBundle(
+      selected,
+      { agents: ['codex'], global: true, prune: true },
+      {
+        run: async (command) => {
+          ran.push(command);
+          return 0;
+        },
+        home,
+        cwd,
+        ownRoot: '/own/agent-skills',
+      }
+    );
+    assert.equal(ran.length, 2);
+    assert.deepEqual(ran[1].args, ['-y', 'skills', 'remove', 'herdr', '--global', '--yes']);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(home, '.agents', '.agent-skills-managed.json'), 'utf8')),
+      { version: 1, skills: ['m'] }
+    );
   } finally {
     await rm(home, { recursive: true, force: true });
     await rm(cwd, { recursive: true, force: true });
