@@ -75,7 +75,7 @@ A one-word reply such as "go", "do it", an option choice like "b", or "merge" is
 "Run my review loop" means these steps. Run them before you open any non-trivial PR, without a request.
 
 1. Run the **interrogate** skill, contested or not. Its verdict stays read-only.
-2. Add reviewers: **ponytail-review** always, **phoenix-architecture** in a repo with `SYSTEM.md`, **thermo-nuclear-review** for auth, persistence, concurrency, or external contracts.
+2. Add reviewers: **ponytail-review** always, **shape-of-system** in a repo with `SYSTEM.md`, **thermo-nuclear-review** for auth, persistence, concurrency, or external contracts.
 3. After the verdict, fix the Act-on findings. Run again only the reviewers whose evidence changed. Stop when Act-on is empty.
 4. Under `## Verification` in the PR body, write one line: the reviewers, the count fixed, the count dismissed. Put the Consider findings in the catch-up entry.
 5. Treat Codex PR review comments as Bugbot comments.
